@@ -25,6 +25,8 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
+export function helloWorld (){};
+
 // Matcher to apply the middleware only on specific paths
 export const config = {
   matcher: ['/protected/:path*', '/login', '/'],
