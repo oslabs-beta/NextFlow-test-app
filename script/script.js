@@ -77,109 +77,108 @@ const middleWareScript = (filePath) => {
 };
 
 function analyzeMiddleware(filePath) {
-    const code = fs.readFileSync(filePath, 'utf8');
-    // console.log('file text :>> ', code);
-    // Parse the file to AST
-    const ast = parser.parse(code, {
-        sourceType: 'module',
-        plugins: ['typescript', 'jsx'], // Add 'typescript' for .ts files
-    });
+  const code = fs.readFileSync(filePath, 'utf8');
+  const ast = parser.parse(code, {
+      sourceType: 'module',
+      plugins: ['typescript', 'jsx'], // Add 'typescript' for .ts files
+  });
 
-    const imports = [];
-    const exports = [];
+  const imports = [];
+  const exports = [];
 
-    // Traverse the AST
-    traverse(ast, {
-        ImportDeclaration(path) {
-            imports.push({
-                source: path.node.source.value,
-                specifiers: path.node.specifiers.map((spec) => ({
-                    imported: spec.imported ? spec.imported.name : 'default',
-                    local: spec.local.name,
-                })),
-            });
-        },
-        ExportNamedDeclaration(path) {
-            if (path.node.declaration) {
-                const declaration = path.node.declaration;
-                if (declaration.declarations) {
-                    // Exports like: export const middleware = ...
-                    declaration.declarations.forEach((decl) => {
-                        exports.push(decl.id.name);
-                    });
-                } else if (declaration.id) {
-                    // Exports like: export function middleware() { ... }
-                    exports.push(declaration.id.name);
-                }
-            } else if (path.node.specifiers) {
-                // Exports like: export { middleware };
-                path.node.specifiers.forEach((spec) => {
-                    exports.push(spec.exported.name);
-                });
-            }
-        },
-        ExportDefaultDeclaration(path) {
-            // Exports like: export default middleware;
-            exports.push('default');
-        },
-    });
-
-    return { imports, exports };
-}
-
-const parse = (moduleExports) => {
-  
-  
-  `
-  {
-    name: ../large-testapp/src/app/middlewares/mainMiddleware.ts
-    children: [
-      {name: , children:[]}
-      ...
-    ]
-  }
-  `
-}
-
-
-function main(filePath) {
-  const resultTree = {
-      name: filePath,
-      children: [],
-  };
-
-  const traverseMiddleware = (currentFilePath, parentNode) => {
-      const analysisResult = analyzeMiddleware(currentFilePath);
-
-      if (analysisResult && analysisResult.imports.length > 0) {
-          for (const importItem of analysisResult.imports) {
-              // Resolve the next file path
-              const nextFilePath = path.resolve(path.dirname(currentFilePath), importItem.source);
-
-              // Create a new child node
-              const childNode = {
-                  name: nextFilePath,
-                  children: [],
-              };
-
-              // Add the child node to the parent
-              parentNode.children.push(childNode);
-
-              // Recursively traverse the next file
-              traverseMiddleware(nextFilePath, childNode);
+  traverse(ast, {
+      ImportDeclaration(path) {
+          const importData = {
+              source: path.node.source.value,
+              specifiers: path.node.specifiers.map((spec) => ({
+                  imported: spec.imported ? spec.imported.name : 'default',
+                  local: spec.local.name,
+              })),
+          };
+          console.log('Found import:', importData); // Debugging
+          imports.push(importData);
+      },
+      ExportNamedDeclaration(path) {
+          if (path.node.declaration) {
+              const declaration = path.node.declaration;
+              if (declaration.declarations) {
+                  declaration.declarations.forEach((decl) => {
+                      exports.push(decl.id.name);
+                  });
+              } else if (declaration.id) {
+                  exports.push(declaration.id.name);
+              }
+          } else if (path.node.specifiers) {
+              path.node.specifiers.forEach((spec) => {
+                  exports.push(spec.exported.name);
+              });
           }
-      }
-  };
+      },
+      ExportDefaultDeclaration(path) {
+          exports.push('default');
+      },
+  });
+
+  console.log('Final imports:', imports); // Debugging
+  console.log('Final exports:', exports); // Debugging
+
+  return { imports, exports };
+}
+
+
+// const parse = (moduleExports) => {
+  
+  
+//   `
+//   {
+//     name: ../large-testapp/src/app/middlewares/mainMiddleware.ts
+//     children: [
+//       {name: , children:[]}
+//       ...
+//     ]
+//   }
+//   `
+// }
+
+
+// function main(filePath) {
+//   const resultTree = {
+//       name: filePath,
+//       children: [],
+//   };
+
+//   const traverseMiddleware = (currentFilePath, parentNode) => {
+//       const analysisResult = analyzeMiddleware(currentFilePath);
+
+//       if (analysisResult && analysisResult.imports.length > 0) {
+//           for (const importItem of analysisResult.imports) {
+//               // Resolve the next file path
+//               const nextFilePath = path.resolve(path.dirname(currentFilePath), importItem.source);
+
+//               // Create a new child node
+//               const childNode = {
+//                   name: nextFilePath,
+//                   children: [],
+//               };
+
+//               // Add the child node to the parent
+//               parentNode.children.push(childNode);
+
+//               // Recursively traverse the next file
+//               traverseMiddleware(nextFilePath, childNode);
+//           }
+//       }
+//   };
 
   // Start traversing from the given file path
-  traverseMiddleware(filePath, resultTree);
-
-  // Output the final tree
-  console.log(JSON.stringify(resultTree, null, 2));
-}
+  const filePath = path.join(__dirname, '../large-testapp/src/app/middlewares/mainMiddleware.ts')
+  analyzeMiddleware(filePath);
+//   // Output the final tree
+//   console.log(JSON.stringify(resultTree, null, 2));
+// }
 
   // console.log('Imports:', result.imports);
   // console.log('Imports specifiers:', result.imports.specifiers);
   // console.log('Exports:', result.exports);
 
-console.log("MAIN", main('../large-testapp/src/app/middlewares/mainMiddleware.ts'));
+// console.log("MAIN", main('../large-testapp/src/app/middlewares/mainMiddleware.ts'));
