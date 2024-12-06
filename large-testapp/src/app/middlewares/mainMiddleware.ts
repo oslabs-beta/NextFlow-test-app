@@ -16,6 +16,7 @@ export function middleware(request: NextRequest) {
   return customHeadersMiddleware();
 }
 
+
 export const config = {
   matcher: ['/protected/:path*', '/login', '/'],
 };

@@ -76,53 +76,82 @@ const middleWareScript = (filePath) => {
   // also need logic to handle conditionals within the files
 };
 
-function analyzeMiddleware(filePath) {
+
+
+function analyzeMiddleware(filePath, finalExports = []) {
   const code = fs.readFileSync(filePath, 'utf8');
   const ast = parser.parse(code, {
-      sourceType: 'module',
-      plugins: ['typescript', 'jsx'], // Add 'typescript' for .ts files
+    sourceType: 'module',
+    plugins: ['typescript', 'jsx'], // Add 'typescript' for .ts files
   });
 
   const imports = [];
   const exports = [];
 
   traverse(ast, {
-      ImportDeclaration(path) {
-          const importData = {
-              source: path.node.source.value,
-              specifiers: path.node.specifiers.map((spec) => ({
-                  imported: spec.imported ? spec.imported.name : 'default',
-                  local: spec.local.name,
-              })),
-          };
-          console.log('Found import:', importData); // Debugging
-          imports.push(importData);
-      },
-      ExportNamedDeclaration(path) {
-          if (path.node.declaration) {
-              const declaration = path.node.declaration;
-              if (declaration.declarations) {
-                  declaration.declarations.forEach((decl) => {
-                      exports.push(decl.id.name);
-                  });
-              } else if (declaration.id) {
-                  exports.push(declaration.id.name);
-              }
-          } else if (path.node.specifiers) {
-              path.node.specifiers.forEach((spec) => {
-                  exports.push(spec.exported.name);
-              });
-          }
-      },
-      ExportDefaultDeclaration(path) {
-          exports.push('default');
-      },
+    ImportDeclaration(path) {
+      const importData = {
+        source: path.node.source.value,
+        specifiers: path.node.specifiers.map((spec) => ({
+          imported: spec.imported ? spec.imported.name : 'default',
+          local: spec.local.name,
+        })),
+      };
+      imports.push(importData);
+    },
+    ExportNamedDeclaration(path) {
+      if (path.node.declaration) {
+        const declaration = path.node.declaration;
+        if (declaration.declarations) {
+          declaration.declarations.forEach((decl) => {
+            exports.push({
+              name: decl.id.name,
+              file: filePath, // Add the file path
+            });
+          });
+        } else if (declaration.id) {
+          exports.push({
+            name: declaration.id.name,
+            file: filePath, // Add the file path
+          });
+        }
+      } else if (path.node.specifiers) {
+        path.node.specifiers.forEach((spec) => {
+          exports.push({
+            name: spec.exported.name,
+            file: filePath, // Add the file path
+          });
+        });
+      }
+    },
+    ExportDefaultDeclaration(path) {
+      exports.push({
+        name: 'default',
+        file: filePath, // Add the file path
+      });
+    },
   });
+  finalExports.push(...exports);
 
-  console.log('Final imports:', imports); // Debugging
-  console.log('Final exports:', exports); // Debugging
-
-  return { imports, exports };
+  // Recursively analyze imports
+  imports.forEach((importItem) => {
+    // Check if the source is a relative path
+    if (importItem.source.includes('.')) {
+      // Create the absolute path to the imported middleware
+      const absolutePath = path.join(
+        __dirname, 
+        `../large-testapp/src/app/middlewares/${importItem.source.replace('./', '')}.ts`
+      );
+  
+      console.log('Analyzing middleware at:', absolutePath); // Debugging
+  
+      // Recursively analyze the middleware
+      analyzeMiddleware(absolutePath, finalExports);
+    }
+  });
+  return finalExports;
+console.log('imports :>> ', imports);
+//   return { imports, exports };
 }
 
 
@@ -171,9 +200,11 @@ function analyzeMiddleware(filePath) {
 //   };
 
   // Start traversing from the given file path
-  const filePath = path.join(__dirname, '../large-testapp/src/app/middlewares/mainMiddleware.ts')
-  analyzeMiddleware(filePath);
-//   // Output the final tree
+  const filePath = path.join(__dirname, '../large-testapp/src/app/middlewares/mainMiddleware.ts');
+  const filePathSmall = path.join(__dirname, '../testapp/src/app/middleware.ts');
+  console.log(analyzeMiddleware(filePathSmall));
+  console.log(analyzeMiddleware(filePath));
+  //   // Output the final tree
 //   console.log(JSON.stringify(resultTree, null, 2));
 // }
 
