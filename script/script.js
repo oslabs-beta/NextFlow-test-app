@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const readline = require('readline');
 const parser = require('@babel/parser');
 const traverse = require('@babel/traverse').default;
 
@@ -17,48 +18,37 @@ const middleWareScript = (filePath) => {
 
 
 
-// give this function fileText and it will return all middleware functions defined within that file in the form of an array;
-  const getMiddlewareNames = (fileText) => {
-    const middlewareRegex = /export\s+function\s+(\w+)\s*\(/g;
-    let match;
-    const middlewareNames = [];
-    while ((match = middlewareRegex.exec(fileText)) !== null) {
-      middlewareNames.push(match[1]);
-    }
-
-    console.log('Middleware Functions:', middlewareNames);
-  }
-
-  const findMiddlewareFiles = (fileText) => {
-    // grab list of imports from analyzeMiddleware and run it through filters to only leave possible middleware files
-    /// filter 1: if middleware is somewhere in the name of the file, pass
-    /// filter 2: if the file is in the same directory as the main middleware file, aka in the middlewares folder, pass
-    /// etc.
-    // return list of filtered imports, should return only middleware files
-  }
-
-
-
-
-  // assuming we are given the file path of middleware.ts
-  //if no other middleware files are detected, parse through the smaller files to find individual middleware pieces
-  // if there are middleware files, now we need to individually parse through the different middleware files to find individual middleware pieces
-  // possible ways to discern middleware
-  // looking for all instances of "export function [middleware name]"
-  // for the case of a larger project with multiple middle ware files, could possibly look for all instances of an import statement which could lead to a smaller middleware file
-  // then we look for all instances of "export function [middleware name]"
-  // after we have a full list of middlewares we need to check the matcher config to pair up each specific path to the specific middleware its being called on
-  // also need logic to handle conditionals within the files
-  // output a json of {
-  //   middleware n ame:{
-  //     child:[
+  
+  // const findMiddlewareFiles = (fileText) => {
+    //   // grab list of imports from analyzeMiddleware and run it through filters to only leave possible middleware files
+    //   /// filter 1: if middleware is somewhere in the name of the file, pass
+    //   /// filter 2: if the file is in the same directory as the main middleware file, aka in the middlewares folder, pass
+    //   /// etc.
+    //   // return list of filtered imports, should return only middleware files
+    // }
+    
+    
+    
+    
+    // assuming we are given the file path of middleware.ts
+    //if no other middleware files are detected, parse through the smaller files to find individual middleware pieces
+    // if there are middleware files, now we need to individually parse through the different middleware files to find individual middleware pieces
+    // possible ways to discern middleware
+    // looking for all instances of "export function [middleware name]"
+    // for the case of a larger project with multiple middle ware files, could possibly look for all instances of an import statement which could lead to a smaller middleware file
+    // then we look for all instances of "export function [middleware name]"
+    // after we have a full list of middlewares we need to check the matcher config to pair up each specific path to the specific middleware its being called on
+    // also need logic to handle conditionals within the files
+    // output a json of {
+      //   middleware n ame:{
+        //     child:[
   //   middleware name
   //                       ]
   //                           }
   //                                }
-
-
-
+  
+  
+  
   // Call the function with a file path
   // start at our given filepath (either middleware.ts for all middleware, or a specific middleware file within the middleware folder)
   // from our given filepath
@@ -76,7 +66,97 @@ const middleWareScript = (filePath) => {
   // also need logic to handle conditionals within the files
 };
 
+const possiblePaths = [];
 
+const pairPathWithMiddleware = (listOfPaths, fileObject) =>{
+  console.log('fileObject :>> ', fileObject);
+  const readStream = fs.createReadStream(fileObject.file);
+  const rl = readline.createInterface({
+    input: readStream,
+    crlfDelay: Infinity
+  });
+
+  let currentPaths = [];
+  let collectingPaths = false; // Flag to determine if we should collect paths
+
+  rl.on('line', (line) => {
+     // Skip comment lines (both single-line and multi-line)
+  if (line.trim().includes('//') || line.trim().includes('*') ) {
+    return; // Skip processing this line
+  }
+  
+  // Process each line here
+  if (line.includes(fileObject.name)) {
+    collectingPaths = true; // Start collecting paths when fileObject.name is encountered
+    // console.log(`Started collecting paths for ${fileObject.name}`);
+  }
+  // If we are collecting paths, check if the line starts with a '/'
+  if (collectingPaths && line.includes('/')){
+    console.log('Processing line:', line);
+  }
+  
+  if (collectingPaths && (line.includes('export function') || line.includes('return'))){
+    collectingPaths = false;
+    }
+
+  });
+
+  rl.on('close', () => {
+    // File processing complete
+  });
+}
+
+const getPathNames = (filePath) => {
+  const innerFileText = fs.readFileSync(filePath, 'utf8');
+
+  // Remove single-line comments and multi-line comments
+  const noCommentsText = innerFileText
+    .replace(/\/\/.*$/gm, '') // Remove single-line comments
+    .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove multi-line comments
+
+  // Split the content into lines
+  const lines = noCommentsText.split('\n');
+
+  // Filter out lines that start with 'import' or 'require' (for imports)
+  const filteredLines = lines.filter(line => !line.trim().startsWith('import') && !line.trim().startsWith('require'));
+
+  // Define a regex to match paths starting with '/' but exclude those with 'import' or 'require'
+  const pathRegex = /(?<!import\s+['"]|require\(['"])\/[a-zA-Z0-9-_\/]+/g;
+
+  // Create a Set to store unique paths
+  const uniquePaths = new Set();
+
+  // Iterate through each line and find matches
+  filteredLines.forEach(line => {
+    const pathMatches = line.match(pathRegex);
+    
+    if (pathMatches) {
+      pathMatches.forEach(path => {
+        uniquePaths.add(path); // Store path directly in the Set
+      });
+    }
+  });
+
+  // Return the Set as an array
+  return Array.from(uniquePaths);
+};
+
+  
+const analyzeFilePaths = (finalExports) => {
+  const checkedPaths = new Set
+  finalExports.forEach((file) =>{
+    if(file.name !== "config"){
+      checkedPaths.add(file);
+    }
+  });
+  checkedPaths.forEach((path)=> {
+    // go inside file, create path array for it and if its name key is config, delete it
+    // console.log('path being used :>> ', path);
+    path.path = [];
+   const possiblePaths = (getPathNames(path.file));
+   pairPathWithMiddleware(possiblePaths, path);
+  });
+}
 
 function analyzeMiddleware(filePath, finalExports = []) {
   const code = fs.readFileSync(filePath, 'utf8');
@@ -143,12 +223,14 @@ function analyzeMiddleware(filePath, finalExports = []) {
         `../large-testapp/src/app/middlewares/${importItem.source.replace('./', '')}.ts`
       );
   
-      console.log('Analyzing middleware at:', absolutePath); // Debugging
+      // console.log('Analyzing middleware at:', absolutePath); // Debugging
   
       // Recursively analyze the middleware
       analyzeMiddleware(absolutePath, finalExports);
     }
   });
+  // console.log('finalExports :>> ', finalExports);
+  analyzeFilePaths(finalExports);
   return finalExports;
 console.log('imports :>> ', imports);
 //   return { imports, exports };
@@ -156,8 +238,6 @@ console.log('imports :>> ', imports);
 
 
 // const parse = (moduleExports) => {
-  
-  
 //   `
 //   {
 //     name: ../large-testapp/src/app/middlewares/mainMiddleware.ts
@@ -202,7 +282,7 @@ console.log('imports :>> ', imports);
   // Start traversing from the given file path
   const filePath = path.join(__dirname, '../large-testapp/src/app/middlewares/mainMiddleware.ts');
   const filePathSmall = path.join(__dirname, '../testapp/src/app/middleware.ts');
-  console.log(analyzeMiddleware(filePathSmall));
+  // console.log(analyzeMiddleware(filePathSmall));
   console.log(analyzeMiddleware(filePath));
   //   // Output the final tree
 //   console.log(JSON.stringify(resultTree, null, 2));
