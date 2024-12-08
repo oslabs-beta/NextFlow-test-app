@@ -4,6 +4,47 @@ const readline = require('readline');
 const parser = require('@babel/parser');
 const traverse = require('@babel/traverse').default;
 
+const pairMatcherWithFile = async (fileObject) =>{
+  try {
+  if (!fileObject.matcher) {
+    fileObject.matcher = new Set();
+  }
+
+  const dynamicMatcherRegex = /\/[a-zA-Z0-9-_\/]+/g; // Matches paths like '/protected/user/123'
+
+  const readStream = fs.createReadStream(fileObject.file);
+    const rl = readline.createInterface({
+      input: readStream,
+      crlfDelay: Infinity,
+    });
+
+     rl.on('line', (line) => {
+      const cleanLine = line.trim();
+
+      // If the line contains the word 'matcher' or any relevant keyword, apply regex matching
+      if (cleanLine.includes('matcher')) {
+        // Extract paths from the line using regex
+        const matches = cleanLine.match(dynamicMatcherRegex);
+
+        // If matches are found, add them to fileObject.matcher
+        if (matches) {
+          matches.forEach((match) => {
+            fileObject.matcher.add(match);
+            console.log('Added to matcher:', match);
+          });
+        }
+      }
+    });
+
+    rl.on('close', () => {
+      console.log('Final fileObject matchers:', Array.from(fileObject.matcher));
+    });
+  }
+  catch (error) {
+    console.log('Error encountered:', error);
+  }
+}
+
 const pairPathWithMiddleware = (fileObject) => {
   return new Promise((resolve, reject) => {
     if (!fileObject.path) {
@@ -212,6 +253,7 @@ const analyzeMiddleware = async (filePath, finalExports = []) => {
 
     for (const file of filteredExports) {
       await pairPathWithMiddleware(file); // Await pairPathWithMiddleware for each file
+      await pairMatcherWithFile(file);
     }
 
     console.log('finalExports :>> ', filteredExports);
