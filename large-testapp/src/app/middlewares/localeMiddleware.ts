@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function helloWorld(request: NextRequest) {
-
-  }
 export function localeMiddleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
