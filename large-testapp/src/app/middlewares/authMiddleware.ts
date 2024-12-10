@@ -10,7 +10,7 @@ export function authMiddleware(request: NextRequest) {
   if (pathname.startsWith('/protected')) {
     const token = request.cookies.get('auth-token');
     if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url));
+      return NextResponse.redirect(new URL('/login/hello/ohyeah', request.url));
     }
   }
 

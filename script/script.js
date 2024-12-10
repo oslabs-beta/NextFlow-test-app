@@ -4,6 +4,57 @@ const readline = require('readline');
 const parser = require('@babel/parser');
 const traverse = require('@babel/traverse').default;
 
+const getLastTwoSegments = (filePath) => {
+  const parts = filePath.split('/');
+  // Get the last two parts
+  return parts.slice(-2).join('/');
+}
+
+const jsonCreator = (arrayOfFinalExports, finalObject = {}) => {
+  // given the array, iterate through each object, this will be a new node everytime\
+  arrayOfFinalExports.forEach(object => {
+    //  objects will have this format ex:  {
+      //   name: 'middleware',
+      //   file: '/home/anoyola/NextFlow-test-app/large-testapp/src/app/middlewares/mainMiddleware.ts',
+      //   path: Set(0) {},
+      //   matcher: Set(2) { '/protected/', '/login' }
+      // },
+    // lets cut the file path and include only the last two /s
+    cutPath = getLastTwoSegments(object.file);
+    // console.log(cutPath);
+    // and then store the path into the final object under the key 'name' and add a children array to it
+    if(!finalObject.name) {
+      finalObject.name = cutPath;
+      finalObject.children = [];
+    }
+    // console.log('finalObject :>> ', finalObject);
+    // now lets look at the name key in our orignal object and add that to its children array. 
+    if (!finalObject.children.some(child => child.name === object.name)) {
+      finalObject.children.push({ name: object.name, children: [] });
+    }
+    // we'll add that to the children array with the same name:ex, children:[];, format
+    // if the object has valid paths, we'll add that to the children array of the middle ware function, in this case middleware
+    if (object.path.size !== 0) {
+      const child = finalObject.children.find(child => child.name === object.name);
+      if (child) {
+        child.children = [...object.path];
+        // console.log('child.children :>> ', child.children);
+      }
+    }
+    // console.log('finalObject :>> ', finalObject);
+    // we'll add the matcher as a seperate key that can be ignored for now
+    if (object.matcher.size !== 0) {
+      const child = finalObject.children.find(child => child.name === object.name);
+      if (child) {
+        child.matcher = [...object.matcher];
+        // console.log('child.matcher :>> ', child.matcher);
+      }
+    }
+  });
+  console.log('finalObject :>> ', finalObject);
+  return JSON.stringify(finalObject);
+}
+
 const pairMatcherWithFile = async (fileObject) =>{
   try {
   if (!fileObject.matcher) {
@@ -30,18 +81,18 @@ const pairMatcherWithFile = async (fileObject) =>{
         if (matches) {
           matches.forEach((match) => {
             fileObject.matcher.add(match);
-            console.log('Added to matcher:', match);
+            // console.log('Added to matcher:', match);
           });
         }
       }
     });
 
     rl.on('close', () => {
-      console.log('Final fileObject matchers:', Array.from(fileObject.matcher));
+      // console.log('Final fileObject matchers:', Array.from(fileObject.matcher));
     });
   }
   catch (error) {
-    console.log('Error encountered:', error);
+    // console.log('Error encountered:', error);
   }
 }
 
@@ -71,20 +122,20 @@ const pairPathWithMiddleware = (fileObject) => {
       if(secondRegex.test(cleanLine) && inFunction){
         // We found another 'export function', so toggle off inFunction
         inFunction = false;
-        console.log('Exited function due to another export function:', cleanLine);
+        // console.log('Exited function due to another export function:', cleanLine);
       }
       
         if (regex.test(cleanLine)) {
           if (!inFunction) {
             // We're entering a new function
             inFunction = true;
-            console.log('Entered function:', cleanLine);
+            // console.log('Entered function:', cleanLine);
           }
         }
     
 
       if(inFunction){
-        console.log('cleanLine :>> ', cleanLine);
+        // console.log('cleanLine :>> ', cleanLine);
         const noCommentsText = cleanLine
         .replace(/\/\/.*$/gm, '') // Remove single-line comments
         .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove multi-line comments
@@ -257,7 +308,7 @@ const analyzeMiddleware = async (filePath, finalExports = []) => {
     }
 
     console.log('finalExports :>> ', filteredExports);
-    return filteredExports;
+    jsonCreator(filteredExports);
   } catch (error) {
     console.log(error);
   }
